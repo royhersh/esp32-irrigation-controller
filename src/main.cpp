@@ -4,6 +4,8 @@
 
 #include <WiFiManager.h> 
 
+#include <NTPClient.h>
+
 // LCD
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
@@ -38,6 +40,14 @@ void saveConfigCallback () {
   Serial.println("SUCCESS");
 }
 
+// Define the NTP settings
+const char *ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 2 * 60 * 60; // Israel timezone is UTC+2
+const int daylightOffset_sec = 0;
+
+// Define the NTP client
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, ntpServer, gmtOffset_sec, daylightOffset_sec);
 
 void setup() {
   Serial.begin(9600);
@@ -45,6 +55,8 @@ void setup() {
   // Init LCD
   lcd.init();                      
   lcd.backlight(); // Turn on the backlight
+  lcd.clear();
+  lcd.print("Starting...");
 
   // Init WiFi Manager
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP 
@@ -65,12 +77,27 @@ void setup() {
   else {
     //if you get here you have connected to the WiFi 
     lcd.clear();
-    lcd.print("connected...yeey :)");
+    lcd.print("Connected to WiFi");
+
+    // Connect to NTP server
+    timeClient.begin();
+    while (!timeClient.update())
+    {
+      timeClient.forceUpdate();
+    }
   }
 }
 
 void loop() {
+  timeClient.update();
+  lcd.clear();
+  lcd.print(WiFi.localIP());
+  lcd.setCursor(0, 1);
+  lcd.print(timeClient.getFormattedDate());
 
-
+  Serial.println(WiFi.localIP());
+  Serial.println(timeClient.getFormattedDate());
+ 
+  delay(1000);
 }
 
