@@ -5,6 +5,8 @@
 #include <WiFiManager.h> 
 
 #include <NTPClient.h>
+#include "SPIFFS.h"
+#include "ESPAsyncWebServer.h"
 
 // LCD
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
@@ -49,6 +51,9 @@ const int daylightOffset_sec = 0;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, ntpServer, gmtOffset_sec, daylightOffset_sec);
 
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+
 void setup() {
   Serial.begin(9600);
 
@@ -57,6 +62,12 @@ void setup() {
   lcd.backlight(); // Turn on the backlight
   lcd.clear();
   lcd.print("Starting...");
+
+  // Initialize SPIFFS
+  if(!SPIFFS.begin(true)){
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
 
   // Init WiFi Manager
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP 
@@ -78,6 +89,8 @@ void setup() {
     //if you get here you have connected to the WiFi 
     lcd.clear();
     lcd.print("Connected to WiFi");
+    // Print ESP32 Local IP Address
+    Serial.println(WiFi.localIP());
 
     // Connect to NTP server
     timeClient.begin();
@@ -85,19 +98,25 @@ void setup() {
     {
       timeClient.forceUpdate();
     }
+    Serial.println(timeClient.getFormattedDate());
+
+    // Async web server
+    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+    server.begin();
+
   }
 }
 
 void loop() {
+  lcd.clear();
+  lcd.print("Nav to IP: ");
+  lcd.setCursor(0, 1);
+  lcd.print(WiFi.localIP());
+  delay(2000);
+
   timeClient.update();
   lcd.clear();
-  lcd.print(WiFi.localIP());
-  lcd.setCursor(0, 1);
   lcd.print(timeClient.getFormattedDate());
-
-  Serial.println(WiFi.localIP());
-  Serial.println(timeClient.getFormattedDate());
- 
-  delay(1000);
+  delay(2000);
 }
 
